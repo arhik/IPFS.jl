@@ -1,0 +1,7 @@
+name = "IPFS"
+uuid = "31e9204d-a346-4e9b-87d5-5ba90a5968a0"
+authors = ["arhik <arhik23@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"

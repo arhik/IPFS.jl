@@ -1,3 +1,7 @@
+syntax = "proto2";
+
+package unixfsV1;
+
 message Data {
 	enum DataType {
 		Raw = 0;
@@ -9,7 +13,7 @@ message Data {
 	}
 
 	required DataType Type = 1;
-	optional bytes Data = 2;
+	optional bytes ByteData = 2;
 	optional uint64 filesize = 3;
 	repeated uint64 blocksizes = 4;
 	optional uint64 hashType = 5;

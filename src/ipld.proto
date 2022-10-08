@@ -1,3 +1,7 @@
+syntax = "proto2";
+
+package ipldv1;
+
 message PBLink {
   // binary CID (with no multibase prefix) of the target object
   optional bytes Hash = 1;

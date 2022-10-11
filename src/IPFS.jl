@@ -1,8 +1,9 @@
 module IPFS
 
-# using ProtoBuf
+using ProtoBuf
 
-# protojl("ipld.proto", @__DIR__, "$(@__DIR__)/protos")
-# protojl("unixfsV1.proto", @__DIR__, "$(@__DIR__)/protos")
+include(joinpath(@__DIR__, "src/jlProtos/ipldv1/ipldv1.jl"))
+include(joinpath(@__DIR__, "src/jlProtos/unixfsv1/unixfsv1.jl"))
+include(joinpath(@__DIR__, "src/jlProtos/bitswap/bitswap.jl"))
 
 end # module IPFS

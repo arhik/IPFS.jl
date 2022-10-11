@@ -4,8 +4,8 @@ using Base58
 
 using DataStructures
 
-include(joinpath(@__DIR__, "src/protos/ipldv1/ipldv1.jl"))
-include(joinpath(@__DIR__, "src/protos/unixfsv1/unixfsv1.jl"))
+include(joinpath(@__DIR__, "src/jlProtos/ipldv1/ipldv1.jl"))
+include(joinpath(@__DIR__, "src/jlProtos/unixfsv1/unixfsv1.jl"))
 
 path = joinpath(@__DIR__, "src/test2.pdf")
 

@@ -1,5 +1,4 @@
 using ProtoBuf
-
 using MultiFormats
 using Base58
 
@@ -8,7 +7,7 @@ using DataStructures
 include(joinpath(@__DIR__, "src/protos/ipldv1/ipldv1.jl"))
 include(joinpath(@__DIR__, "src/protos/unixfsv1/unixfsv1.jl"))
 
-path = joinpath(@__DIR__, "src/test.pdf")
+path = joinpath(@__DIR__, "src/test2.pdf")
 
 pdfBytes = read(path)
 
@@ -56,15 +55,14 @@ function fsEncode(blk::Vector{UInt8})
 	take!(io)
 end
 
-function fsEncode(fsize, blocksizes)
+function fsEncode(fsize, blockSizes)
 	io = IOBuffer()
 	e = ProtoEncoder(io)
 	unixfsDict = ProtoBuf.default_values(unixfsV1.Data) |> pairs |> OrderedDict
 	unixfsDict[Symbol("#Type")] = unixfsV1.var"Data.DataType".File # TODO abstract this
-	# unixfsDict[:Data] = b".pdf"
 	unixfsDict[:filesize] = fsize
-	unixfsDict[:blocksizes] = blocksizes
-	# unixfsDict[:fanout] = length(blocksizes)
+	unixfsDict[:blocksizes] = blockSizes
+	# unixfsDict[:fanout] = length(blockSizes)
 	# unixfsDict[:mode] = 0x000001a4 # TODO abstract this
 	fs = UnixFSv1(unixfsDict |> NamedTuple)
 	encode(e, getfield(fs, :internal))
@@ -145,8 +143,8 @@ end
 
 fsBytes = fsEncode(length(pdfBytes), blockSizes)
 nodeBytes = nodeEncode(links, fsBytes)
-hash = multiHash(:sha2_256, nodeBytes)
-wrappedHash = hashWrap(:sha2_256, hash)
+mHash = multiHash(:sha2_256, nodeBytes)
+wrappedHash = hashWrap(:sha2_256, mHash)
 base58encode(wrappedHash) .|> Char |> String
 
 
@@ -181,7 +179,8 @@ function nodeDecode(buf::Vector{UInt8})
 	decode(d, ipldv1.PBNode)
 end
 
-retObj = inspect(`ipfs block get QmaaWTJN7N4GfAEDx4Xqh32aFHbjYUvaHQY8huue2F7sHg`)
+retObj = inspect(`ipfs block get QmPuGrwVkQNeqC2Su7X4SCdnbdC6LtprsM6XagFmZs2KNe`)
+# retObj = inspect(`ipfs dag get QmaaWTJN7N4GfAEDx4Xqh32aFHbjYUvaHQY8huue2F7sHg`)
 
 upstream = nodeDecode(retObj.stdout)
 
@@ -198,3 +197,67 @@ end
 data = dataDecode(upstream.Data)
 
 data2 = dataDecode(fsBytes)
+
+nodeDecode(nodeBytes)
+
+
+for (u, d) in zip(retObj.stdout, nodeBytes)
+	@info (u, d)
+end
+
+@enum DAGLayout BALANCED TRICKLE LOBSIDED
+
+# struct DAGLayout
+	# layout::DAG_Layout
+# end
+
+# TODO not sensible need to change this mess
+maxWidth(layout::DAGLayout) = maxWidth(Val(layout))
+maxWidth(::Val{BALANCED}) = 174
+maxWidth(::Val{TRICKLE}) = 174
+
+data = read("src/QmZPwQaNXYJbGBN8bFujxUzubJTTNuEVFvygVLVchYoMuH")
+
+function buildDAG(layout::DAGLayout, data::Vector{UInt8}; isLeaf=true)
+	nodeWidth = maxWidth(layout)
+	blockWidth = 2^18
+	
+	blockIter = Base.Iterators.partition(data, blockWidth)
+	nodeIter = Base.Iterators.partition(blockIter, nodeWidth)
+	nNodes = div(length(blockIter), nodeWidth, RoundUp)
+	nodeArrayBytes = UInt8[]
+	nodeBytesOuter = Ref{Vector{UInt8}}()
+	for (nodeIdx, node) in enumerate(nodeIter)
+		@info nodeIdx, length(node)
+		blockHashed = []
+		blockSizes = UInt64[]
+		links = ipldv1.PBLink[]
+		nodes = ipldv1.PBNode[]
+		totalLength = 0
+		for (idx, block) in enumerate(node)
+			totalLength += length(block)
+			fsBytes = fsEncode(block |> collect)
+			nodeBytes = nodeEncode(fsBytes)
+			hash = multiHash(:sha2_256, nodeBytes)
+			wrappedmultiHash = hashWrap(:sha2_256, hash)
+			push!(blockHashed, wrappedmultiHash)
+			push!(blockSizes, length(block))
+			push!(links, ipldv1.PBLink(wrappedmultiHash, "", length(nodeBytes)))
+		end
+		fsBytes = fsEncode(totalLength, blockSizes)
+		nodeBytesOuter[] = nodeEncode(links, fsBytes)
+		mHash = multiHash(:sha2_256, nodeBytesOuter[])
+		wrappedHash = hashWrap(:sha2_256, mHash)
+		@info base58encode(wrappedHash) .|> Char |> String
+		append!(nodeArrayBytes, nodeBytesOuter[])
+	end
+	if nNodes > 1
+		dags = buildDAG(layout, nodeArrayBytes[:]; isLeaf=false)
+	else
+		return nodeDecode(nodeBytes)
+	end
+end
+
+root = buildDAG(BALANCED, data)
+
+
